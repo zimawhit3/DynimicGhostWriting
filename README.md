@@ -1,6 +1,8 @@
 # DynimicGhostwriting
 Windows x64 Process Injection via Ghostwriting with Dynamic Configuration
 
+Currently only tested on Windows 10 Home Build 19042
+
 # Nim Dependencies #
 Requires Winim. To install run:
 
