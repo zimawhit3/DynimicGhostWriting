@@ -3,7 +3,32 @@
     Github: https://github.com/zimawhit3
     License: BSD 3-Clause
 ]#
-import typedefs, pe, utility
+import typedefs, pe, utility, macros, strformat
+
+macro hashHGEntryArray(x: typed): untyped =
+    echo fmt"[+] Hashing the HGEntry Array..."
+    x.expectKind(nnkSym)
+    let
+        funcdef     = x.getImpl
+        assignments = funcdef[6]
+        syscalls : array[18, string] = [
+            "NtOpenProcess", "NtWaitForSingleObject", "NtSuspendThread", "NtGetContextThread", "NtSetContextThread",
+            "NtQuerySystemInformation", "NtQueryInformationProcess", "NtAllocateVirtualMemory", "NtFreeVirtualMemory",
+            "NtOpenThread", "NtResumeThread", "NtReadVirtualMemory", "NtSuspendProcess", "NtResumeProcess", "NtUserGetThreadState",
+            "NtUserPostMessage", "NtQueryVirtualMemory", "NtQueryInformationThread"
+        ]
+    for stmnt in assignments:
+        if stmnt.kind != nnkLetSection and stmnt[0].kind != nnkIdentDefs:
+            continue
+        let
+            idents      = stmnt[0]
+            bracket     = idents[2]
+        for i in 0 ..< bracket.len():
+            let
+                hash    = syscalls[i].djb2_hash
+                newVal  = newLit(hash)
+            echo fmt"[+] Setting {syscalls[i]} to hash value {hash}"
+            bracket[i] = newVal
 
 func isFilled*(t: array[18, HGEntry]): bool =
     result = true
@@ -45,10 +70,7 @@ proc newHGEntry*(FunctionCall: uint64): HGEntry =
 proc newHGArray*(): array[18, HGEntry] =
     let
         SyscallStrings  : array[18, uint64] = [
-          ~"NtOpenProcess", ~"NtWaitForSingleObject", ~"NtSuspendThread", ~"NtGetContextThread", ~"NtSetContextThread",
-          ~"NtQuerySystemInformation", ~"NtQueryInformationProcess", ~"NtAllocateVirtualMemory", ~"NtFreeVirtualMemory",
-          ~"NtOpenThread", ~"NtResumeThread", ~"NtReadVirtualMemory", ~"NtSuspendProcess", ~"NtResumeProcess", ~"NtUserGetThreadState",
-          ~"NtUserPostMessage", ~"NtQueryVirtualMemory", ~"NtQueryInformationThread"
+          0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64
         ]
     var
         Syscalls        : array[18, HGEntry]
@@ -58,3 +80,5 @@ proc newHGArray*(): array[18, HGEntry] =
         Syscalls[i] = Entry
 
     result = Syscalls
+
+hashHGEntryArray(newHGArray)

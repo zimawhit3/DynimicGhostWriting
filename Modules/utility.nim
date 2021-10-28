@@ -3,14 +3,11 @@
     Github: https://github.com/zimawhit3
     License: BSD 3-Clause
 ]#
-import json
+import json, macros
 
 from typedefs import PPEB, PVOID, BYTE, PBYTE, LARGE_INTEGER, HGEntry, WORD, LIST_ENTRY, PLIST_ENTRY,
                      PLDR_DATA_TABLE_ENTRY, LDR_DATA_TABLE_ENTRY
 
-template `~`*(Call: string): uint64 =
-    ## hash our syscall strings at compile time
-    Call.djb2_hash
 
 template `->`*[T](p: T; x: untyped): int =
     cast[int](p) + p.offsetOf(x)

@@ -3,6 +3,7 @@
     Github: https://github.com/zimawhit3
     License: BSD 3-Clause
 ]#
+#toDO: my template doesnt hash at compile time, need to make a macro to do that
 import Modules/ghostwrite
 
 proc NimMain() {.cdecl, importc.}
