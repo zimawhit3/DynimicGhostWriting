@@ -4,32 +4,13 @@
     License: BSD 3-Clause
 ]#
 import winim/[utils, winstr]
-import utility, strformat, strutils, os, macros
+import utility, strformat, strutils, os
 from winim/inc/winuser import SetLastErrorEx, EnumWindows, WNDENUMPROC, GetWindowThreadProcessId
 
 when not defined(zima):
     from winim/inc/winuser import GetWindowTextLength, GetWindowText, IsWindowVisible
 
 include syscalls
-
-macro hashWrapperProc(x: typed, s: typed): untyped =
-    x.expectKind(nnkSym)
-    let
-        funcdef     = x.getImpl
-        procName    = funcdef[0].strVal
-        assignments = funcdef[6]
-    
-    expectKind(assignments[1], nnkAsgn)
-    expectIdent(assignments[1][0], "syscallv")
-    let
-        asgncall    = assignments[1][1]
-    expectKind(asgncall, nnkCall)
-    expectKind(asgncall[2], nnkUInt64Lit)
-    let
-        hash        = s.strVal.djb2_hash
-        newVal      = newLit(hash)
-    asgncall[2] = newVal
-    echo fmt"[+] Hashing {procName}! {s.strVal} to {hash}"
 
 iterator processes*(buffer: LPVOID): PSYSTEM_PROCESS_INFORMATION =
     var
@@ -56,8 +37,9 @@ proc GetThreadHandle*(ThreadHandle: PHANDLE, ClientID: PCLIENT_ID, Functions: ar
         Access  : ACCESS_MASK = THREAD_ALL_ACCESS
         ObjAttr : OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES()
         Status  : NTSTATUS
-        
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtOpenThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntOpenThread(ThreadHandle, Access, &ObjAttr, ClientID)
     if NT_SUCCESS(Status):
@@ -73,8 +55,9 @@ proc GetProcessHandle*(ProcessHandle: PHANDLE, Clid: PCLIENT_ID, Functions: arra
         Access  : ACCESS_MASK       = PROCESS_ALL_ACCESS
         ObjAttr : OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES()
         Status  : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtOpenProcess".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntOpenProcess(ProcessHandle, Access, &ObjAttr, Clid)
     if NT_SUCCESS(Status):
@@ -88,8 +71,9 @@ proc GetProcessHandle*(ProcessHandle: PHANDLE, Clid: PCLIENT_ID, Functions: arra
 proc GetContext*(ThreadHandle: HANDLE, Context: PCONTEXT, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtGetContextThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntGetContextThread(ThreadHandle, Context)
     if NT_SUCCESS(Status):
@@ -103,8 +87,9 @@ proc GetContext*(ThreadHandle: HANDLE, Context: PCONTEXT, Functions: array[18, H
 proc SetContext*(ThreadHandle: HANDLE, Context: PCONTEXT, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtSetContextThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntSetContextThread(ThreadHandle, Context)
     if NT_SUCCESS(Status):
@@ -118,8 +103,9 @@ proc SetContext*(ThreadHandle: HANDLE, Context: PCONTEXT, Functions: array[18, H
 proc SuspendThread*(ThreadHandle: HANDLE, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtSuspendThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntSuspendThread(ThreadHandle, NULL)
     if NT_SUCCESS(Status):
@@ -133,8 +119,9 @@ proc SuspendThread*(ThreadHandle: HANDLE, Functions: array[18, HGEntry]): bool =
 proc ResumeThread*(ThreadHandle: HANDLE, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtResumeThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
         
     Status = ntResumeThread(ThreadHandle, NULL)
     if NT_SUCCESS(Status):
@@ -148,8 +135,9 @@ proc ResumeThread*(ThreadHandle: HANDLE, Functions: array[18, HGEntry]): bool =
 proc SuspendProcess*(ProcessHandle: HANDLE, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtSuspendProcess".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntSuspendProcess(ProcessHandle)
     if NT_SUCCESS(Status):
@@ -163,8 +151,9 @@ proc SuspendProcess*(ProcessHandle: HANDLE, Functions: array[18, HGEntry]): bool
 proc ResumeProcess*(ProcessHandle: HANDLE, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtResumeProcess".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
         
     Status = ntResumeProcess(ProcessHandle)
     if NT_SUCCESS(Status):
@@ -178,8 +167,9 @@ proc ResumeProcess*(ProcessHandle: HANDLE, Functions: array[18, HGEntry]): bool 
 proc VirtualAlloc*(ProcessHandle: HANDLE, BaseAddress: ptr PVOID, RegionSize: var PSIZE_T, AllocType: ULONG, Protect: ULONG, Functions: array[18, HGEntry]): PVOID =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtAllocateVirtualMemory".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntAllocateVirtualMemory(ProcessHandle, BaseAddress, 0, RegionSize, AllocType, Protect)
     if NT_SUCCESS(Status):
@@ -193,8 +183,9 @@ proc VirtualAlloc*(ProcessHandle: HANDLE, BaseAddress: ptr PVOID, RegionSize: va
 proc VirtualFree*(ProcessHandle: HANDLE, BaseAddress: ptr PVOID, RegionSize: var PSIZE_T, FreeType: ULONG, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtFreeVirtualMemory".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntFreeVirtualMemory(ProcessHandle, BaseAddress, RegionSize, FreeType)
     if NT_SUCCESS(Status):
@@ -209,8 +200,9 @@ proc QueryInformationSystem*(SystemInformationClass: SYSTEM_INFORMATION_CLASS, S
                              SystemInfoLength: ULONG, ReturnLength: PULONG, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS 
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtQuerySystemInformation".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntQuerySystemInformation(SystemInformationClass, SystemInfoAddress, SystemInfoLength, ReturnLength)
     if NT_SUCCESS(Status):
@@ -223,8 +215,9 @@ proc QueryInformationProcess*(ProcessHandle: HANDLE, ProcessInfoClass: PROCESS_I
                               ProcessInfoLength: ULONG, ReturnLength: PULONG, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtQueryInformationProcess".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntQueryInformationProcess(ProcessHandle, ProcessInfoClass, ProcessInfo, ProcessInfoLength, ReturnLength)
     if NT_SUCCESS(Status):
@@ -243,8 +236,9 @@ proc QueryInformationThread*(ThreadHandle: HANDLE, InfoClass: THREAD_INFORMATION
                              ThreadInfoLength: ULONG, ReturnLength: PULONG, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-    
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtQueryInformationThread".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntQueryInformationThread(ThreadHandle, InfoClass, ThreadInfo, ThreadInfoLength, ReturnLength)
     if NT_SUCCESS(Status):
@@ -259,8 +253,9 @@ proc QueryVirtualMemory*(ThreadHandle: HANDLE, BaseAddress: PVOID, MemoryInfoCla
                          MemoryInfoLength: ULONG, ReturnLength: PULONG, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtQueryVirtualMemory".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
 
     Status = ntQueryVirtualMemory(ThreadHandle, BaseAddress, MemoryInfoClass, MemoryInfo, MemoryInfoLength, ReturnLength)
     if NT_SUCCESS(Status):
@@ -345,8 +340,9 @@ proc ReadProcessMemory*(ProcessHandle: HANDLE, BaseAddress: LPCVOID, Buffer: LPV
                         NumberOfBytesRead: ptr SIZE_T, Functions: array[18, HGEntry]): bool =
     var
         Status : NTSTATUS
-
-    syscallv = Functions.getSyscallWord(0u64)
+    const
+        Hash = "NtReadVirtualMemory".djb2_hash
+    syscallv = Functions.getSyscallWord(Hash)
     
     Status = ntReadVirtualMemory(ProcessHandle, cast[PVOID](BaseAddress), Buffer, Size, Size.unsafeAddr)
     if NT_SUCCESS(Status):
@@ -532,19 +528,3 @@ proc EnumProcesses*(Functions: array[18, HGEntry], Process: string = "", Io: Fil
                     green(text, Io)
         if not VirtualFree(cast[HANDLE](-1), &buffer, dataSize, MEM_DECOMMIT, Functions):
             return
-
-hashWrapperProc(GetThreadHandle, "NtOpenThread")
-hashWrapperProc(GetProcessHandle, "NtOpenProcess")
-hashWrapperProc(GetContext, "NtGetContextThread")
-hashWrapperProc(SetContext, "NtSetContextThread")
-hashWrapperProc(SuspendThread, "NtSuspendThread")
-hashWrapperProc(ResumeThread, "NtResumeThread")
-hashWrapperProc(SuspendProcess, "NtSuspendProcess")
-hashWrapperProc(ResumeProcess, "NtResumeProcess")
-hashWrapperProc(VirtualAlloc, "NtAllocateVirtualMemory")
-hashWrapperProc(VirtualFree, "NtFreeVirtualMemory")
-hashWrapperProc(QueryInformationProcess, "NtQueryInformationProcess")
-hashWrapperProc(QueryInformationSystem, "NtQuerySystemInformation")
-hashWrapperProc(QueryInformationThread, "NtQueryInformationThread")
-hashWrapperProc(QueryVirtualMemory, "NtQueryVirtualMemory")
-hashWrapperProc(ReadProcessMemory, "NtReadVirtualMemory")

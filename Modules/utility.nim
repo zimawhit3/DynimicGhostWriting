@@ -8,6 +8,9 @@ import json, macros
 from typedefs import PPEB, PVOID, BYTE, PBYTE, LARGE_INTEGER, HGEntry, WORD, LIST_ENTRY, PLIST_ENTRY,
                      PLDR_DATA_TABLE_ENTRY, LDR_DATA_TABLE_ENTRY
 
+template `~`*(Call: string): uint64 =
+    ## used to hash our syscall strings at compile time
+    Call.djb2_hash
 
 template `->`*[T](p: T; x: untyped): int =
     cast[int](p) + p.offsetOf(x)
@@ -104,11 +107,9 @@ func getSyscallWord*(t: array[18, HGEntry], HashCmp: uint64): WORD {.inline.} =
             return
 
 proc djb2_hash*(pFuncName: string): uint64 =
-    var 
-        hash : uint64 = 0xDEADC0DEu  # SET HASH
+    result = 0xDEADC0DEu # SET ME
     for c in pFuncName:
-        hash = ((hash shl 0x05) + hash) + cast[uint](ord(c))
-    result = hash
+        result = ((result shl 0x05) + result) + cast[uint](ord(c))
 
 proc green*(text: string, outfile: File = stdout) =
   outfile.write("\e[32m", text, "\e[0m\n")

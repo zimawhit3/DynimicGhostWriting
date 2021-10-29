@@ -3,32 +3,10 @@
     Github: https://github.com/zimawhit3
     License: BSD 3-Clause
 ]#
-import typedefs, pe, utility, macros, strformat
+import typedefs, pe, utility
 
-macro hashHGEntryArray(x: typed): untyped =
-    echo fmt"[+] Hashing the HGEntry Array..."
-    x.expectKind(nnkSym)
-    let
-        funcdef     = x.getImpl
-        assignments = funcdef[6]
-        syscalls : array[18, string] = [
-            "NtOpenProcess", "NtWaitForSingleObject", "NtSuspendThread", "NtGetContextThread", "NtSetContextThread",
-            "NtQuerySystemInformation", "NtQueryInformationProcess", "NtAllocateVirtualMemory", "NtFreeVirtualMemory",
-            "NtOpenThread", "NtResumeThread", "NtReadVirtualMemory", "NtSuspendProcess", "NtResumeProcess", "NtUserGetThreadState",
-            "NtUserPostMessage", "NtQueryVirtualMemory", "NtQueryInformationThread"
-        ]
-    for stmnt in assignments:
-        if stmnt.kind != nnkLetSection and stmnt[0].kind != nnkIdentDefs:
-            continue
-        let
-            idents      = stmnt[0]
-            bracket     = idents[2]
-        for i in 0 ..< bracket.len():
-            let
-                hash    = syscalls[i].djb2_hash
-                newVal  = newLit(hash)
-            echo fmt"[+] Setting {syscalls[i]} to hash value {hash}"
-            bracket[i] = newVal
+proc newHGEntry*(FunctionCall: uint64): HGEntry =
+    result  = HGEntry(Hash : FunctionCall)
 
 func isFilled*(t: array[18, HGEntry]): bool =
     result = true
@@ -64,21 +42,18 @@ proc InitializeHGTable*(HGArray : var array[18, HGEntry]): bool =
         if LoadLibraryUsed:
             FreeLibrary(LocalModuleBaseAddress)
     
-proc newHGEntry*(FunctionCall: uint64): HGEntry =
-    result  = HGEntry(Hash : FunctionCall)
-
 proc newHGArray*(): array[18, HGEntry] =
-    let
-        SyscallStrings  : array[18, uint64] = [
-          0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64
-        ]
+    const
+        Hashes : array[18, uint64] = [
+            ~"NtOpenProcess", ~"NtWaitForSingleObject", ~"NtSuspendThread", ~"NtGetContextThread", ~"NtSetContextThread",
+            ~"NtQuerySystemInformation", ~"NtQueryInformationProcess", ~"NtAllocateVirtualMemory", ~"NtFreeVirtualMemory",
+            ~"NtOpenThread", ~"NtResumeThread", ~"NtReadVirtualMemory", ~"NtSuspendProcess", ~"NtResumeProcess", ~"NtUserGetThreadState",
+            ~"NtUserPostMessage", ~"NtQueryVirtualMemory", ~"NtQueryInformationThread"
+            ]
     var
         Syscalls        : array[18, HGEntry]
-    for i in 0 ..< SyscallStrings.len:
+    for i in 0 ..< Hashes.len:
         var
-            Entry : HGEntry = newHGEntry(SyscallStrings[i])
+            Entry : HGEntry = newHGEntry(Hashes[i])
         Syscalls[i] = Entry
-
     result = Syscalls
-
-hashHGEntryArray(newHGArray)
